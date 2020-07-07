@@ -1,0 +1,185 @@
+{
+  "Description": "Simple AWS Products Serverless API service.",
+  "Parameters" : {
+    "ProductsBucketName" : {
+        "Type" : "String",
+        "Description" : "Name of S3 bucket used to store the products content. If left blank, AWS CloudFormation would manage this resource.",
+        "MinLength" : "0"
+    },
+    "ProductsTableName" : {
+        "Type" : "String",
+        "Description" : "Name of DynamoDB table used to store the products metadata. If left blank, AWS CloudFormation would manage this resource.",
+        "MinLength" : "0"
+      },
+    "ReadCapacity" : {
+        "Type" : "Number",
+        "Description" : "Read capacity for the DynamoDB blog table.",
+        "Default" : "3",
+        "MinValue" : 1
+    },
+    "WriteCapacity" : {
+        "Type" : "Number",
+        "Description" : "Write capacity for the DynamoDB blog table.",
+        "Default" : "3",
+        "MinValue" : 1
+    }
+  },
+  "Conditions" : {
+    "CreateProductsBucket" : {"Fn::Equals" : [{"Ref" : "ProductsBucketName"}, ""]},
+    "CreateProductsTable" : {"Fn::Equals" : [{"Ref" : "ProductsTableName"}, ""]}
+  },
+  "Resources": {
+    "CreateProductHandler": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "com.serverless.CreateProductHandler",
+        "Runtime" : "java8",
+        "CodeUri" : "./target/aws-products-api-1.0.0.jar",
+        "Policies": [
+          "AmazonDynamoDBFullAccess",
+          "AmazonS3ReadOnlyAccess"
+        ],
+        "Environment" : {
+          "Variables" : {
+            "PRODUCTS_TABLE_NAME" : { "Fn::If" : ["CreateProductsTable", {"Ref":"ProductsTable"}, { "Ref" : "ProductsTableName" } ] },
+            "PRODUCTS_BUCKET_NAME" : { "Fn::If" : ["CreateProductsBucket", {"Ref":"ProductsBucket"}, { "Ref" : "ProductsBucketName" } ] }
+          }
+        },
+        "Events": {
+          "GetResource": {
+            "Type": "Api",
+            "Properties": {
+              "Path": "/products",
+              "Method": "post"
+            }
+          }
+        }
+      }
+    },
+    "ListProductsHandler": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "com.serverless.ListProductsHandler",
+        "Runtime" : "java8",
+        "CodeUri" : "./target/aws-products-api-1.0.0.jar",
+        "Policies": [
+          "AmazonDynamoDBReadOnlyAccess",
+          "AmazonS3ReadOnlyAccess"
+        ],
+        "Environment" : {
+          "Variables" : {
+            "PRODUCTS_TABLE_NAME" : { "Fn::If" : ["CreateProductsTable", {"Ref":"ProductsTable"}, { "Ref" : "ProductsTableName" } ] },
+            "PRODUCTS_BUCKET_NAME" : { "Fn::If" : ["CreateProductsBucket", {"Ref":"ProductsBucket"}, { "Ref" : "ProductsBucketName" } ] }
+          }
+        },
+        "Events": {
+          "GetResource": {
+            "Type": "Api",
+            "Properties": {
+              "Path": "/products",
+              "Method": "get"
+            }
+          }
+        }
+      }
+    },
+    "GetProductHandler": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "com.serverless.GetProductHandler",
+        "Runtime" : "java8",
+        "CodeUri" : "./target/aws-products-api-1.0.0.jar",
+        "Policies": [
+          "AmazonDynamoDBReadOnlyAccess",
+          "AmazonS3ReadOnlyAccess"
+        ],
+        "Environment" : {
+          "Variables" : {
+            "PRODUCTS_TABLE_NAME" : { "Fn::If" : ["CreateProductsTable", {"Ref":"ProductsTable"}, { "Ref" : "ProductsTableName" } ] },
+            "PRODUCTS_BUCKET_NAME" : { "Fn::If" : ["CreateProductsBucket", {"Ref":"ProductsBucket"}, { "Ref" : "ProductsBucketName" } ] }
+          }
+        },
+        "Events": {
+          "GetResource": {
+            "Type": "Api",
+            "Properties": {
+              "Path": "/products/{id}",
+              "Method": "get"
+            }
+          }
+        }
+      }
+    },
+    "DeleteProductHandler": {
+      "Type": "AWS::Serverless::Function",
+      "Properties": {
+        "Handler": "com.serverless.DeleteProductHandler",
+        "Runtime" : "java8",
+        "CodeUri" : "./target/aws-products-api-1.0.0.jar",
+        "Policies": [
+          "AmazonDynamoDBFullAccess",
+          "AmazonS3ReadOnlyAccess"
+        ],
+        "Environment" : {
+          "Variables" : {
+            "PRODUCTS_TABLE_NAME" : { "Fn::If" : ["CreateProductsTable", {"Ref":"ProductsTable"}, { "Ref" : "ProductsTableName" } ] },
+            "PRODUCTS_BUCKET_NAME" : { "Fn::If" : ["CreateProductsBucket", {"Ref":"ProductsBucket"}, { "Ref" : "ProductsBucketName" } ] }
+          }
+        },
+        "Events": {
+          "GetResource": {
+            "Type": "Api",
+            "Properties": {
+              "Path": "/products/{id}",
+              "Method": "delete"
+            }
+          }
+        }
+      }
+    },
+    "ProductsTable": {
+      "Type": "AWS::DynamoDB::Table",
+      "Condition" : "CreateProductsTable",
+      "Properties": {
+        "AttributeDefinitions": [
+          {
+            "AttributeName": "id",
+            "AttributeType": "S"
+          },
+          {
+            "AttributeName": "name",
+            "AttributeType": "S"
+          }
+        ],
+        "KeySchema": [
+          {
+            "AttributeName": "id",
+            "KeyType": "HASH"
+          },
+          {
+            "AttributeName": "name",
+            "KeyType": "RANGE"
+          }
+        ],
+        "ProvisionedThroughput": {
+          "ReadCapacityUnits": {"Ref" : "ReadCapacity"},
+          "WriteCapacityUnits": {"Ref" : "WriteCapacity"}
+        }
+      }
+    },
+    "ProductsBucket": {
+      "Type": "AWS::S3::Bucket",
+      "Condition" : "CreateProductsBucket",
+      "Properties": {
+      }
+    }
+  },
+  "Outputs" : {
+    "ProductsTable" : {
+      "Value" : { "Fn::If" : ["CreateProductsTable", {"Ref":"ProductsTable"}, { "Ref" : "ProductsTableName" } ] }
+    },
+    "ProductsBucket" : {
+      "Value" : { "Fn::If" : ["CreateProductsBucket", {"Ref":"ProductsBucket"}, { "Ref" : "ProductsBucketName" } ] }
+    }
+  }
+}
